@@ -1,0 +1,62 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: An EC2 instance
+Parameters:
+  Initials:
+    Type: String
+  InstanceType:
+    Type: String
+    Default: t2.medium
+  IngressCidr:
+    Type: String
+    Default: 217.151.0.131/32
+Mappings:
+  AWSRegionToAMI: # Windows Server 2016 Base
+    eu-west-1:
+      AMIID: ami-96e1f27c
+Resources:
+  SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: !Sub 'sbx-${Initials}-test-sg'
+      GroupDescription: Security Group for tests
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22 # SSH
+          ToPort: 22
+          CidrIp: !Ref 'IngressCidr'
+        - IpProtocol: tcp
+          FromPort: 3389 # RDP
+          ToPort: 3389
+          CidrIp: !Ref 'IngressCidr'
+        - IpProtocol: tcp
+          FromPort: 5985 # PowerShell Remoting HTTP
+          ToPort: 5986 # PowerShell Remoting HTTPS
+          CidrIp: !Ref 'IngressCidr'
+      Tags:
+        - Key: Name
+          Value: !Sub 'sbx-${Initials}-test-sg'
+  Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !FindInMap ['AWSRegionToAMI', !Ref 'AWS::Region', AMIID]
+      InstanceType: !Ref 'InstanceType'
+      KeyName: !Sub 'sbx-${Initials}-tests'
+      SecurityGroupIds:
+        - !Sub '${SecurityGroup.GroupId}'
+      Tags:
+        - Key: Name
+          Value: !Sub 'sbx-${Initials}-server'
+Outputs:
+  BastionPublicIp:
+    Value: !Sub '${Instance.PublicIp}'
+    Export:
+      Name: !Sub 'sbx-${Initials}-server-public-ip'
+  BastionPrivateIp:
+    Value: !Sub '${Instance.PrivateIp}'
+    Export:
+      Name: !Sub 'sbx-${Initials}-server-private-ip'
+  BastionAZ:
+    Value: !Sub '${Instance.AvailabilityZone}'
+    Export:
+      Name: !Sub 'sbx-${Initials}-server-az'
